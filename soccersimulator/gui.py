@@ -164,7 +164,6 @@ class SimuGUI(pyglet.window.Window):
                                     list.append((ordre))
                                 list.append([self.selectedPlayer[0], self.selectedPlayer[1][0], self.selectedPlayer[1][1]])
                                 writer.writerow(list)
-                                #writer.writerow([lastRow,self.selectedPlayer[0], self.selectedPlayer[1][0], self.selectedPlayer[1][1]])
                         else:
                             writer.writerow((row))
 
@@ -225,7 +224,6 @@ class SimuGUI(pyglet.window.Window):
                                 writer.writerow(['ballPos', "nextLikelyPosition", "posTeam1", "typeTeam1", "posTeam2", "typeTeam2", "ballWithTeam"])
                         with open('etats.csv', 'a',newline='') as f:
                             writer = csv.writer(f, delimiter='_')
-                            #writer.writerow([str((posBall.x, posBall.y)), str((ballNextLikelyPosition.x, ballNextLikelyPosition.y)), team1pos, team1type, team2pos, team2type, str(ballTeam)])
                             writer.writerow(currentState)
                             self.doOrder()
                     elif self.lastStateSaved == currentState:
