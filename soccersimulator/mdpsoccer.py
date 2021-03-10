@@ -59,6 +59,7 @@ class SoccerAction(object):
 class Ball(MobileMixin):
     def __init__(self,position=None,vitesse=None,**kwargs):
         super(Ball,self).__init__(position,vitesse,**kwargs)
+        self.team = None
     def next(self,shoot):
         vitesse = self.vitesse.copy()
         vitesse.norm = self.vitesse.norm - settings.ballBrakeSquare * self.vitesse.norm ** 2 - settings.ballBrakeConstant * self.vitesse.norm
@@ -81,6 +82,7 @@ class Ball(MobileMixin):
     def inside_goal(self):
         return (self.position.x < 0 or self.position.x > settings.GAME_WIDTH)\
                 and abs(self.position.y - (settings.GAME_HEIGHT / 2.)) < settings.GAME_GOAL_HEIGHT / 2.
+    @property
     def nextLikelyPosition(self):
         ## prédit la position du ballon apres une passe ou un tir vers le goal pour permettre une interception
         return self.position + 50*self.vitesse.normalize()
@@ -201,7 +203,8 @@ class SoccerState(object):
         self.goal = kwargs.pop('goal', 0)
         self.__dict__.update(kwargs)
         ###############################################
-        self.ballControl = 1
+        self.ballControl = 1 #l'équipe qui shoot le ballon à l'instant même
+
 
     def __str__(self):
         return ("Step: %d, %s " %(self.step,str(self.ball)))+\
@@ -283,6 +286,8 @@ class SoccerState(object):
                     #print(self.player_state(k[0],k[1]))
         #print("########################################################")
         self.ballControl = playerTeam
+        if self.ballControl != None:
+            self.ball.team = self.ballControl
         self.ball.next(shoots[playersAgilityIndex].scale(playersStrength))
         self.step += 1
         if self.ball.inside_goal():
