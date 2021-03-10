@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
 import pyglet
+import csv
+import os
 # pyglet.options["debug_gl"]=True
 # pyglet.options["debug_trace"]=True
 # pyglet.options["debug_gl_trace"]=True
@@ -64,6 +66,8 @@ class SimuGUI(pyglet.window.Window):
         self.lastTargetsSelectedRecently = []  # TEMPORAIRE IL FAUT DECIDER D'OU LE METTRE
         self.selectedTarget = "SaCage"
         self.selectedTarget2 = "SaCage"
+        self.enregistrer = True
+        self.lastStateSaved = []
         ###################################################################################
         ###
         pyglet.clock.schedule_interval(self.update, 1. / 25)
@@ -114,7 +118,16 @@ class SimuGUI(pyglet.window.Window):
     def upperTargetingMixage(self):
         self.orders_hud.change_mixage_target_value(1)
 
-    def doOrder(self):
+    def import_csv(self,filename):
+        data = []
+        with open(filename, "r") as f:
+            reader = csv.reader(f, delimiter='_')
+            for row in reader:
+                if row:
+                    data.append(row)
+        return data
+
+    def doOrder(self, appendFile=False):
         order = self.orders_hud.get_order()
         team = self.get_team(self.selectedPlayer[0][0])
         for t in [1,2]:
@@ -126,6 +139,39 @@ class SimuGUI(pyglet.window.Window):
                         order[2] = (t,i)
         team.giveOrder(self.selectedPlayer[0][1],order)
         self.selectedPlayer[1] = order
+        #print(self.selectedPlayer[0]) #séléectionné
+        #print(self.selectedPlayer[1][0]) #action
+        #print(self.selectedPlayer[1][1]) #cible
+        if self.enregistrer:
+            if os.path.isfile('./ordres.csv') == False:
+                with open('ordres.csv', 'w', newline= '') as f:
+                    writer = csv.writer(f, delimiter='_')
+                    writer.writerow(['joueur', 'action', 'cible'])
+            if appendFile:
+                data = self.import_csv('ordres.csv')
+                #print("##DATA: ",data)
+                lastRow = data[-1]
+                #print("##LASTROW: ",lastRow)
+                with open('ordres.csv', 'w',newline='') as f:
+                    writer = csv.writer(f, delimiter='_')
+                    for row in data:
+                        if row == lastRow:
+                            if lastRow[0] == 'joueur':
+                                writer.writerow([self.selectedPlayer[0], self.selectedPlayer[1][0], self.selectedPlayer[1][1]])
+                            else:
+                                list = []
+                                for ordre in lastRow:
+                                    list.append((ordre))
+                                list.append([self.selectedPlayer[0], self.selectedPlayer[1][0], self.selectedPlayer[1][1]])
+                                writer.writerow(list)
+                                #writer.writerow([lastRow,self.selectedPlayer[0], self.selectedPlayer[1][0], self.selectedPlayer[1][1]])
+                        else:
+                            writer.writerow((row))
+
+            else:
+                with open('ordres.csv', 'a',newline='') as f:
+                    writer = csv.writer(f, delimiter='_')
+                    writer.writerow([[self.selectedPlayer[0], self.selectedPlayer[1][0], self.selectedPlayer[1][1]]])
 
     def on_mouse_press(self,x,y,button,modifiers):
         lengthWindow, heightWindow = self.get_size() #Taille de l'interface en pixel
@@ -133,7 +179,59 @@ class SimuGUI(pyglet.window.Window):
 
         if(x_n >= settings.GAME_WIDTH): #Selection dans Order_Hud
             if (x_n >= settings.GAME_WIDTH + 12 and x_n <= settings.GAME_WIDTH + 33.3) and ((y_n >= settings.GAME_HEIGHT - 57) and (y_n <= settings.GAME_HEIGHT - 50.5)):
-                self.doOrder()
+                ### écrire les données de l'état (matrice X)
+                if self.enregistrer:
+                    posBall = self.state.ball.position
+                    ballNextLikelyPosition = self.state.ball.nextLikelyPosition
+                    ballTeam = self.state.ball.team
+                    players = {}
+                    players[1] = {}
+                    players[2] = {}
+                    for k, v in self.state.players:
+                        players[k][v] = (self.state.player_state(k,v).position, self.get_team(k).player_type(v))
+                    team1pos = ''
+                    team2pos = ''
+                    team1type = ''
+                    team2type = ''
+                    for k in players:
+                        if k == 1:
+                            for p in players[k]:
+                                if team1pos == '':
+                                    team1pos+=str(players[k][p][0])
+                                else:
+                                    team1pos+='/'+str(players[k][p][0])
+                                if team1type == '':
+                                    team1type+=players[k][p][1]
+                                else:
+                                    team1type+='/'+players[k][p][1]
+                        else:
+                            for p in players[k]:
+                                if team2pos == '':
+                                    team2pos+=str(players[k][p][0])
+                                else:
+                                    team2pos+='/'+str(players[k][p][0])
+                                if team2type == '':
+                                    team2type+=players[k][p][1]
+                                else:
+                                    team2type+='/'+players[k][p][1]
+
+                    currentState = [posBall, ballNextLikelyPosition, team1pos, team1type, team2pos, team2type, ballTeam]
+                    print(currentState == self.lastStateSaved)
+                    if len(self.lastStateSaved) == 0 or self.lastStateSaved != currentState:
+                        self.lastStateSaved = currentState
+                        if os.path.isfile('./etats.csv') == False:
+                            with open('etats.csv', 'w', newline= '') as f:
+                                writer = csv.writer(f, delimiter='_')
+                                writer.writerow(['ballPos', "nextLikelyPosition", "posTeam1", "typeTeam1", "posTeam2", "typeTeam2", "ballWithTeam"])
+                        with open('etats.csv', 'a',newline='') as f:
+                            writer = csv.writer(f, delimiter='_')
+                            #writer.writerow([str((posBall.x, posBall.y)), str((ballNextLikelyPosition.x, ballNextLikelyPosition.y)), team1pos, team1type, team2pos, team2type, str(ballTeam)])
+                            writer.writerow(currentState)
+                            self.doOrder()
+                    elif self.lastStateSaved == currentState:
+                        self.doOrder(appendFile=True)
+
+
             elif(x_n >= settings.GAME_WIDTH + 37 and x_n <= settings.GAME_WIDTH + 53) and ((y_n >= settings.GAME_HEIGHT - 57) and (y_n <= settings.GAME_HEIGHT - 50.5)):
                 team = self.get_team(self.selectedPlayer[0][0])
                 team.resetOrder(self.selectedPlayer[0][1])
